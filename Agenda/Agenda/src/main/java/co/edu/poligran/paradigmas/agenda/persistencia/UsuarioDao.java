@@ -3,11 +3,6 @@ package co.edu.poligran.paradigmas.agenda.persistencia;
 import co.edu.poligran.paradigmas.agenda.modelo.RolUsuario;
 import co.edu.poligran.paradigmas.agenda.modelo.Usuario;
 
-import javax.crypto.SecretKeyFactory;
-import javax.crypto.spec.PBEKeySpec;
-import java.security.GeneralSecurityException;
-import java.security.MessageDigest;
-import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -15,10 +10,6 @@ import java.util.Locale;
 import java.util.Optional;
 
 public class UsuarioDao implements ICrudDAO<Usuario> {
-    private static final int ITERACIONES = 120_000;
-    private static final int LONGITUD_CLAVE_BITS = 256;
-    private static final int LONGITUD_SAL = 16;
-
     @Override
     public Usuario crear(List<Usuario> lista, Usuario usuario) {
         validarListaYUsuario(lista, usuario);
@@ -95,46 +86,6 @@ public class UsuarioDao implements ICrudDAO<Usuario> {
         return buscarPorNombreUsuario(lista, nombreAcceso);
     }
 
-    public boolean verificarClave(List<Usuario> lista, String nombreUsuario, char[] clave) {
-        if (clave == null) {
-            return false;
-        }
-        Optional<Usuario> encontrado = buscarPorNombreUsuario(lista, nombreUsuario);
-        if (!encontrado.isPresent() || !encontrado.get().isActivo()) {
-            return false;
-        }
-        Usuario usuario = encontrado.get();
-        byte[] hashGuardado = usuario.getClaveHash();
-        byte[] sal = usuario.getClaveSal();
-        if (hashGuardado == null || sal == null) {
-            return false;
-        }
-        return MessageDigest.isEqual(hashGuardado, derivarClave(clave, sal));
-    }
-
-    public Usuario registrar(List<Usuario> lista, String nombre, String apellido,
-                             String nombreAcceso, char[] clave, RolUsuario rol) {
-        validarLista(lista);
-        validarTexto(nombre, "nombre");
-        validarTexto(apellido, "apellido");
-        validarTexto(nombreAcceso, "nombre de acceso");
-        if (clave == null || clave.length == 0) {
-            throw new IllegalArgumentException("La clave no puede estar vacía");
-        }
-        if (rol == null) {
-            throw new IllegalArgumentException("El rol es obligatorio");
-        }
-        if (buscarPorNombreUsuario(lista, nombreAcceso).isPresent()) {
-            throw new IllegalArgumentException("Ya existe un usuario con ese nombre de acceso");
-        }
-        byte[] sal = new byte[LONGITUD_SAL];
-        new SecureRandom().nextBytes(sal);
-        byte[] hash = derivarClave(clave, sal);
-        Usuario usuario = new Usuario(0, nombre.trim(), apellido.trim(), nombreAcceso.trim(),
-                rol, true, hash, sal);
-        return crear(lista, usuario);
-    }
-
     public boolean actualizarRol(List<Usuario> lista, long id, RolUsuario rol) {
         validarLista(lista);
         if (rol == null) {
@@ -188,24 +139,5 @@ public class UsuarioDao implements ICrudDAO<Usuario> {
 
     private String normalizar(String texto) {
         return texto == null ? "" : texto.trim().toLowerCase(Locale.ROOT);
-    }
-
-    private byte[] derivarClave(char[] clave, byte[] sal) {
-        PBEKeySpec especificacion = new PBEKeySpec(clave, sal, ITERACIONES, LONGITUD_CLAVE_BITS);
-        try {
-            return SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
-                    .generateSecret(especificacion)
-                    .getEncoded();
-        } catch (GeneralSecurityException excepcion) {
-            throw new IllegalStateException("No se pudo verificar o proteger la clave", excepcion);
-        } finally {
-            especificacion.clearPassword();
-        }
-    }
-
-    private void validarTexto(String valor, String campo) {
-        if (valor == null || valor.trim().isEmpty()) {
-            throw new IllegalArgumentException("El campo " + campo + " es obligatorio");
-        }
     }
 }
