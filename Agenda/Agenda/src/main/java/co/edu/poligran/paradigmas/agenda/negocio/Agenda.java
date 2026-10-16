@@ -7,22 +7,15 @@ import co.edu.poligran.paradigmas.agenda.modelo.Mesa;
 import co.edu.poligran.paradigmas.agenda.modelo.Pedido;
 import co.edu.poligran.paradigmas.agenda.modelo.RolUsuario;
 import co.edu.poligran.paradigmas.agenda.modelo.Usuario;
-import co.edu.poligran.paradigmas.agenda.persistencia.HistorialEstadoDAO;
-import co.edu.poligran.paradigmas.agenda.persistencia.MesaDAO;
-import co.edu.poligran.paradigmas.agenda.persistencia.PedidoDAO;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 
 public class Agenda {
     private final Scanner entrada = new Scanner(System.in);
-    private final List<Mesa> mesas = new ArrayList<>();
-    private final List<Pedido> pedidos = new ArrayList<>();
-    private final List<HistorialEstado> historial = new ArrayList<>();
-    private final MesaDAO mesaDAO = new MesaDAO();
-    private final PedidoDAO pedidoDAO = new PedidoDAO();
-    private final HistorialEstadoDAO historialDAO = new HistorialEstadoDAO();
+    private final MesaManager mesaManager = new MesaManager();
+    private final PedidoManager pedidoManager = new PedidoManager();
+    private final HistorialEstadoManager historialManager = new HistorialEstadoManager();
     private final Usuario mesero = new Usuario(
             1, "Mesero", "Demo", "mesero", RolUsuario.MESERO, true);
 
@@ -62,9 +55,9 @@ public class Agenda {
     }
 
     private void inicializarMesas() {
-        mesaDAO.crear(mesas, new Mesa(0, 1, 4, EstadoMesa.LIBRE));
-        mesaDAO.crear(mesas, new Mesa(0, 2, 4, EstadoMesa.LIBRE));
-        mesaDAO.crear(mesas, new Mesa(0, 3, 2, EstadoMesa.LIBRE));
+        mesaManager.crear(new Mesa(0, 1, 4, EstadoMesa.LIBRE));
+        mesaManager.crear(new Mesa(0, 2, 4, EstadoMesa.LIBRE));
+        mesaManager.crear(new Mesa(0, 3, 2, EstadoMesa.LIBRE));
     }
 
     private void mostrarMenu() {
@@ -77,7 +70,7 @@ public class Agenda {
     }
 
     private void listarPedidos() {
-        List<Pedido> lista = pedidoDAO.listar(pedidos);
+        List<Pedido> lista = pedidoManager.listar();
         if (lista.isEmpty()) {
             System.out.println("Todavía no hay pedidos.");
             return;
@@ -95,7 +88,7 @@ public class Agenda {
     }
 
     private void crearPedido() {
-        List<Mesa> mesasLibres = mesaDAO.consultarLibres(mesas);
+        List<Mesa> mesasLibres = mesaManager.consultarLibres();
         if (mesasLibres.isEmpty()) {
             System.out.println("No hay mesas libres.");
             return;
@@ -107,21 +100,23 @@ public class Agenda {
         }
 
         int numeroMesa = leerEntero("Número de mesa: ");
-        Mesa mesa = mesaDAO.buscarPorNumero(mesasLibres, numeroMesa).orElse(null);
+        Mesa mesa = mesaManager.buscarPorNumero(numeroMesa)
+                .filter(mesasLibres::contains)
+                .orElse(null);
         if (mesa == null) {
             System.out.println("El número indicado no corresponde a una mesa libre.");
             return;
         }
 
-        Pedido pedido = pedidoDAO.crear(
-                pedidos, new Pedido(0, mesa, mesero, EstadoPedido.RECIBIDO));
-        mesa.setEstado(EstadoMesa.OCUPADA);
+        Pedido pedido = pedidoManager.crear(
+                new Pedido(0, mesa, mesero, EstadoPedido.RECIBIDO));
+        mesaManager.actualizarEstado(mesa.getId(), EstadoMesa.OCUPADA);
         System.out.printf("Pedido #%d creado para la mesa %d.%n",
                 pedido.getId(), mesa.getNumero());
     }
 
     private void cambiarEstadoPedido() {
-        if (pedidos.isEmpty()) {
+        if (pedidoManager.listar().isEmpty()) {
             System.out.println("No hay pedidos para actualizar.");
             return;
         }
@@ -140,11 +135,11 @@ public class Agenda {
             return;
         }
 
-        boolean actualizado = historialDAO.registrarCambioEstado(
-                historial, pedidos, pedidoId, estados[opcionEstado - 1], mesero);
+        boolean actualizado = historialManager.registrarCambioEstado(
+                pedidoManager, pedidoId, estados[opcionEstado - 1], mesero);
         if (actualizado) {
             System.out.println("Estado actualizado y registrado en el historial.");
-        } else if (pedidoDAO.buscarPorId(pedidos, pedidoId).isEmpty()) {
+        } else if (pedidoManager.buscarPorId(pedidoId).isEmpty()) {
             System.out.println("No existe un pedido con ese ID.");
         } else {
             System.out.println("El pedido ya tiene ese estado; no se registraron cambios.");
@@ -152,7 +147,7 @@ public class Agenda {
     }
 
     private void mostrarHistorial() {
-        List<HistorialEstado> registros = historialDAO.listar(historial);
+        List<HistorialEstado> registros = historialManager.listar();
         if (registros.isEmpty()) {
             System.out.println("Todavía no hay cambios de estado registrados.");
             return;
