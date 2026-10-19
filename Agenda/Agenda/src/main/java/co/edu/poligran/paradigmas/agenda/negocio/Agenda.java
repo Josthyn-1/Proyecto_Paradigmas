@@ -10,6 +10,7 @@ public class Agenda {
     private final Scanner entrada = new Scanner(System.in);
 
     private final MesaManager mesaManager = new MesaManager();
+    private final CategoriaManager categoriaManager = new CategoriaManager();
     private final ProductoManager productoManager = new ProductoManager();
     private final PedidoManager pedidoManager = new PedidoManager();
     private final ItemPedidoManager itemPedidoManager = new ItemPedidoManager();
@@ -31,20 +32,21 @@ public class Agenda {
             mostrarMenuPrincipal();
             int opcion = leerEntero("Selecciona una opción: ");
             switch (opcion) {
-                case 1 -> menuMesas();
-                case 2 -> menuProductos();
-                case 3 -> menuPedidos();
-                case 4 -> menuUsuarios();
-                case 5 -> menuFacturas();
-                case 6 -> mostrarHistorial();
-                case 0 -> ejecutando = false;
-                default -> System.out.println("Opción no válida.");
+                case 1: menuMesas(); break;
+                case 2: menuProductos(); break;
+                case 3: menuPedidos(); break;
+                case 4: menuUsuarios(); break;
+                case 5: menuFacturas(); break;
+                case 6: mostrarHistorial(); break;
+                case 0: ejecutando = false; break;
+                default: System.out.println("Opción no válida.");
             }
         }
         System.out.println("Programa finalizado.");
     }
 
     private void inicializarDemo() {
+        Categoria categoriaGeneral = obtenerCategoriaGeneral();
         // Inicializa algunas mesas por defecto
         if (mesaManager.listar().isEmpty()) {
             mesaManager.crear(new Mesa(0, 1, 4, EstadoMesa.LIBRE));
@@ -54,8 +56,8 @@ public class Agenda {
         // Puedes añadir productos de demo si lo deseas (ajusta constructor si es necesario)
         if (productoManager.listar().isEmpty()) {
             try {
-                productoManager.crear(new Producto(0, "Agua", "Agua embotellada", new BigDecimal("1.50"), true, null));
-                productoManager.crear(new Producto(0, "Cafe", "Cafe negro", new BigDecimal("1.20"), true, null));
+                productoManager.crear(new Producto(0, "Agua", categoriaGeneral, new BigDecimal("1.50"), true, "Agua embotellada"));
+                productoManager.crear(new Producto(0, "Cafe", categoriaGeneral, new BigDecimal("1.20"), true, "Cafe negro"));
             } catch (Exception e) {
                 // Si el constructor real difiere, ajusta en tu proyecto
             }
@@ -69,6 +71,11 @@ public class Agenda {
                 return Optional.empty();
             }
         });
+    }
+
+    private Categoria obtenerCategoriaGeneral() {
+        return categoriaManager.buscarPorNombre("General")
+                .orElseGet(() -> categoriaManager.crear(new Categoria(0, "General", true)));
     }
 
     private void mostrarMenuPrincipal() {
@@ -94,12 +101,12 @@ public class Agenda {
             System.out.println("0. Volver");
             int op = leerEntero("Opción: ");
             switch (op) {
-                case 1 -> listarMesas();
-                case 2 -> crearMesa();
-                case 3 -> cambiarEstadoMesa();
-                case 4 -> eliminarMesa();
-                case 0 -> regresar = true;
-                default -> System.out.println("Opción no válida.");
+                case 1: listarMesas(); break;
+                case 2: crearMesa(); break;
+                case 3: cambiarEstadoMesa(); break;
+                case 4: eliminarMesa(); break;
+                case 0: regresar = true; break;
+                default: System.out.println("Opción no válida.");
             }
         }
     }
@@ -170,13 +177,13 @@ public class Agenda {
             System.out.println("0. Volver");
             int op = leerEntero("Opción: ");
             switch (op) {
-                case 1 -> listarProductos();
-                case 2 -> crearProducto();
-                case 3 -> actualizarPrecioProducto();
-                case 4 -> cambiarDisponibilidadProducto();
-                case 5 -> eliminarProducto();
-                case 0 -> regresar = true;
-                default -> System.out.println("Opción no válida.");
+                case 1: listarProductos(); break;
+                case 2: crearProducto(); break;
+                case 3: actualizarPrecioProducto(); break;
+                case 4: cambiarDisponibilidadProducto(); break;
+                case 5: eliminarProducto(); break;
+                case 0: regresar = true; break;
+                default: System.out.println("Opción no válida.");
             }
         }
     }
@@ -202,7 +209,7 @@ public class Agenda {
             BigDecimal precio = new BigDecimal(leerLinea("Precio: "));
             boolean disponible = leerEntero("Disponible? 1=si 0=no: ") == 1;
             // Ajusta el constructor de Producto según tu modelo si es distinto
-            Producto p = new Producto(0, nombre, descripcion, precio, disponible, null);
+            Producto p = new Producto(0, nombre, obtenerCategoriaGeneral(), precio, disponible, descripcion);
             productoManager.crear(p);
             System.out.println("Producto creado.");
         } catch (Exception e) {
@@ -247,14 +254,14 @@ public class Agenda {
             System.out.println("0. Volver");
             int op = leerEntero("Opción: ");
             switch (op) {
-                case 1 -> listarPedidos();
-                case 2 -> crearPedido();
-                case 3 -> agregarItemAPedido();
-                case 4 -> modificarItemPedido();
-                case 5 -> cambiarEstadoPedido();
-                case 6 -> eliminarPedido();
-                case 0 -> regresar = true;
-                default -> System.out.println("Opción no válida.");
+                case 1: listarPedidos(); break;
+                case 2: crearPedido(); break;
+                case 3: agregarItemAPedido(); break;
+                case 4: modificarItemPedido(); break;
+                case 5: cambiarEstadoPedido(); break;
+                case 6: eliminarPedido(); break;
+                case 0: regresar = true; break;
+                default: System.out.println("Opción no válida.");
             }
         }
     }
@@ -409,13 +416,13 @@ public class Agenda {
             System.out.println("0. Volver");
             int op = leerEntero("Opción: ");
             switch (op) {
-                case 1 -> listarUsuarios();
-                case 2 -> crearUsuario();
-                case 3 -> cambiarRolUsuario();
-                case 4 -> cambiarEstadoUsuario();
-                case 5 -> eliminarUsuario();
-                case 0 -> regresar = true;
-                default -> System.out.println("Opción no válida.");
+                case 1: listarUsuarios(); break;
+                case 2: crearUsuario(); break;
+                case 3: cambiarRolUsuario(); break;
+                case 4: cambiarEstadoUsuario(); break;
+                case 5: eliminarUsuario(); break;
+                case 0: regresar = true; break;
+                default: System.out.println("Opción no válida.");
             }
         }
     }
@@ -489,10 +496,10 @@ public class Agenda {
             System.out.println("0. Volver");
             int op = leerEntero("Opción: ");
             switch (op) {
-                case 1 -> crearFacturaParaPedido();
-                case 2 -> consultarFacturaPedido();
-                case 0 -> regresar = true;
-                default -> System.out.println("Opción no válida.");
+                case 1: crearFacturaParaPedido(); break;
+                case 2: consultarFacturaPedido(); break;
+                case 0: regresar = true; break;
+                default: System.out.println("Opción no válida.");
             }
         }
     }
@@ -506,12 +513,10 @@ public class Agenda {
             return;
         }
         try {
-            // Construir factura: ajusta constructor de Factura en tu modelo si es distinto
-            Factura factura = new Factura(0, pedidoOpt.get(), BigDecimal.ZERO, EstadoPedido.CERRADO);
+                Factura factura = new Factura(0, pedidoOpt.get(), BigDecimal.ZERO,
+                    BigDecimal.ZERO, BigDecimal.ZERO);
             facturaManager.crear(factura);
             System.out.println("Factura creada para el pedido.");
-            // Opcional: actualizar estado del pedido a CERRADO vía historial
-            historialManager.registrarCambioEstado(pedidoManager, pedidoId, EstadoPedido.CERRADO, mesero);
             mesaManager.actualizarEstado(pedidoOpt.get().getMesa().getId(), EstadoMesa.LIBRE);
         } catch (Exception e) {
             System.out.println("Error creando factura: " + e.getMessage());
