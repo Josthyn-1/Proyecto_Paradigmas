@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: co.edu.poligran.paradigmas.agenda.negocio.ReservaManagerTest
+-------------------------------------------------------------------------------
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.015 s -- in co.edu.poligran.paradigmas.agenda.negocio.ReservaManagerTest
