@@ -58,7 +58,7 @@ public class PedidoManager extends BaseManager<Pedido> {
 
         Pedido pedido = pedidoOpt.get();
         if (pedido.getEstado() == null || pedido.getEstado() == EstadoPedido.CANCELADO
-                || pedido.getEstado() == EstadoPedido.ENTREGADO) {
+                || pedido.getEstado() == EstadoPedido.ENTREGADO || pedido.getEstado() == EstadoPedido.PAGADO) {
             throw new IllegalArgumentException("Solo se pueden transferir pedidos activos");
         }
 

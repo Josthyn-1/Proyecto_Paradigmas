@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agenda · Restaurante</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #14110f;
+      --panel: #1e1a17;
+      --panel2: #272220;
+      --line: #34302b;
+      --tx: #f4ede4;
+      --mut: #9b9189;
+      --acc: #f2a541;
+      --acc2: #e4572e;
+      --ok: #4cc38a;
+      --busy: #ef6351;
+      --res: #6aa8ff;
+      --mnt: #a78bfa;
+      --r: 16px;
+    }
+
+    * { box-sizing: border-box; margin: 0; }
+    body {
+      font-family: Inter, system-ui, sans-serif;
+      background: radial-gradient(1200px 600px at 80% -10%, #3a2615 0, transparent 60%), var(--bg);
+      color: var(--tx);
+      display: flex;
+      min-height: 100vh;
+    }
+    h1, h2, h3, .logo { font-family: Fraunces, Georgia, serif; }
+    aside {
+      width: 230px; padding: 24px 16px; border-right: 1px solid var(--line); background: rgba(30,26,23,.7);
+      backdrop-filter: blur(10px); position: sticky; top: 0; height: 100vh;
+    }
+    .logo { font-size: 24px; padding: 0 10px 24px; color: var(--acc); }
+    nav button {
+      display: flex; gap: 12px; align-items: center; width: 100%;
+      padding: 12px 14px; margin-bottom: 6px; border: 0; border-radius: 12px;
+      background: none; color: var(--mut); font: 500 15px Inter; cursor: pointer; transition: .2s;
+    }
+    nav button:hover { background: var(--panel2); color: var(--tx); }
+    nav button.on {
+      background: linear-gradient(135deg, var(--acc), var(--acc2)); color: #1b0f05; font-weight: 600;
+    }
+    main { flex: 1; padding: 32px 40px; max-width: 1400px; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 26px; }
+    header h1 { font-size: 34px; }
+    header span { color: var(--mut); font-size: 14px; }
+    .btn {
+      border: 0; border-radius: 10px; padding: 10px 16px; font: 600 14px Inter; cursor: pointer;
+      color: #1b0f05; background: linear-gradient(135deg, var(--acc), var(--acc2)); transition: .2s;
+    }
+    .btn:hover { transform: translateY(-1px); filter: brightness(1.1); }
+    .btn.g { background: var(--panel2); color: var(--tx); border: 1px solid var(--line); }
+    .btn.s { padding: 6px 10px; font-size: 12px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 18px; }
+    .card {
+      background: linear-gradient(180deg, var(--panel2), var(--panel)); border: 1px solid var(--line);
+      border-radius: var(--r); padding: 20px; transition: .25s; animation: up .4s both;
+    }
+    .card:hover { transform: translateY(-4px); box-shadow: 0 14px 30px #0006; }
+    @keyframes up { from { opacity: 0; transform: translateY(12px); } }
+    .kpi b { display: block; font: 700 34px Fraunces; margin-top: 6px; }
+    .kpi small { color: var(--mut); }
+    .badge {
+      display: inline-block; padding: 4px 10px; border-radius: 99px; font-size: 12px; font-weight: 600;
+    }
+    .LIBRE { background: #4cc38a22; color: var(--ok); }
+    .OCUPADA { background: #ef635122; color: var(--busy); }
+    .RESERVADA { background: #6aa8ff22; color: var(--res); }
+    .MANTENIMIENTO { background: #a78bfa22; color: var(--mnt); }
+    .mesa .n { font: 700 46px Fraunces; line-height: 1; }
+    .mesa .cap { color: var(--mut); margin: 6px 0 14px; }
+    select, input { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--tx); font: 14px Inter; margin-bottom: 10px; }
+    .row { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+    .emoji { font-size: 44px; }
+    .price { font: 700 20px Fraunces; color: var(--acc); }
+    .off { opacity: .45; }
+    .kan { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(260px, 1fr); gap: 16px; overflow-x: auto; padding-bottom: 10px; }
+    .col { background: #0003; border-radius: var(--r); padding: 12px; min-height: 200px; }
+    .col h3 { font-size: 15px; color: var(--mut); margin: 4px 6px 12px; text-transform: uppercase; letter-spacing: .08em; }
+    .col .card { padding: 14px; margin-bottom: 12px; }
+    .it { font-size: 13px; color: var(--mut); display: flex; justify-content: space-between; padding: 3px 0; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 14px; border-bottom: 1px solid var(--line); }
+    th { color: var(--mut); font-size: 12px; text-transform: uppercase; }
+    .empty { color: var(--mut); padding: 30px; text-align: center; }
+    #modal { position: fixed; inset: 0; background: #000a; display: none; place-items: center; backdrop-filter: blur(4px); z-index: 5; }
+    #modal.on { display: grid; }
+    #modal form { background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 28px; width: min(420px, 92vw); animation: up .3s; }
+    #modal h2 { margin-bottom: 16px; }
+    label { font-size: 12px; color: var(--mut); display: block; margin-bottom: 4px; }
+    #toast { position: fixed; bottom: 24px; right: 24px; background: var(--busy); color: #fff; padding: 14px 20px; border-radius: 12px; opacity: 0; transform: translateY(20px); transition: .3s; z-index: 9; }
+    #toast.on { opacity: 1; transform: none; }
+    #toast.ok { background: var(--ok); color: #06210f; }
+    @media(max-width:800px) { aside { display:none; } main { padding: 20px; } }
+  </style>
+</head>
+<body>
+  <aside>
+    <div class="logo">🍽️ Agenda</div>
+    <nav id="nav"></nav>
+  </aside>
+
+  <main>
+    <header>
+      <h1 id="titulo"></h1>
+      <div id="acciones"></div>
+    </header>
+    <section id="vista"></section>
+  </main>
+
+  <div id="modal"><form id="form"></form></div>
+  <div id="toast"></div>
+
+  <script>
+    const $ = s => document.querySelector(s);
+    const money = n => '$' + Number(n).toFixed(2);
+    const ICON = { Bebidas: '🥤', Platos: '🍝', Postres: '🍰', General: '🍽️' };
+    const FLUJO = ['PENDIENTE', 'RECIBIDO', 'EN_PREPARACION', 'LISTO', 'ENTREGADO'];
+    const ESTADOS_PEDIDO = [...FLUJO, 'PAGADO', 'CANCELADO'];
+    const VISTAS = { panel: ['📊', 'Panel'], mesas: ['🪑', 'Mesas'], menu: ['📖', 'Menú'], pedidos: ['🧾', 'Pedidos'], facturas: ['💳', 'Facturas'] };
+    let D = { mesas: [], productos: [], pedidos: [], facturas: [] }, vista = 'panel';
+
+    async function api(ruta, datos) {
+      try {
+        const r = await fetch('/api/' + ruta, datos ? { method: 'POST', body: new URLSearchParams(datos) } : {});
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error);
+        D = j;
+        pintar();
+      } catch (e) {
+        aviso(e.message);
+      }
+    }
+
+    function aviso(msg, ok) {
+      const t = $('#toast');
+      t.textContent = msg;
+      t.className = 'on' + (ok ? ' ok' : '');
+      setTimeout(() => t.className = '', 3000);
+    }
+
+    function modal(titulo, campos, ruta, extra = {}) {
+      $('#form').innerHTML = `<h2>${titulo}</h2>${campos}<div class="row"><button type="button" class="btn g" onclick="cerrar()">Cancelar</button><button class="btn">Guardar</button></div>`;
+      $('#form').onsubmit = e => {
+        e.preventDefault();
+        api(ruta, { ...extra, ...Object.fromEntries(new FormData(e.target)) });
+        cerrar();
+      };
+      $('#modal').classList.add('on');
+    }
+    const cerrar = () => $('#modal').classList.remove('on');
+    const campo = (n, l, t = 'text', v = '') => `<label>${l}</label><input name="${n}" type="${t}" value="${v}" required step="any">`;
+
+    function pintar() {
+      $('#nav').innerHTML = Object.entries(VISTAS).map(([k, [i, t]]) =>
+        `<button class="${k === vista ? 'on' : ''}" onclick="vista='${k}'; pintar()">${i} ${t}</button>`
+      ).join('');
+      $('#titulo').textContent = VISTAS[vista][1];
+      $('#acciones').innerHTML = {
+        mesas: `<button class="btn" onclick="nuevaMesa()">+ Nueva mesa</button>`,
+        menu: `<button class="btn" onclick="nuevoProducto()">+ Nuevo producto</button>`,
+        pedidos: `<button class="btn" onclick="nuevoPedido()">+ Nuevo pedido</button>`
+      }[vista] || '';
+      $('#vista').innerHTML = ({ panel, mesas, menu, pedidos, facturas })[vista]();
+    }
+
+    function panel() {
+      const libres = D.mesas.filter(m => m.estado === 'LIBRE').length;
+      const activos = D.pedidos.filter(p => !['ENTREGADO', 'CANCELADO'].includes(p.estado)).length;
+      const ventas = D.facturas.reduce((s, f) => s + Number(f.total), 0);
+      const k = (t, v, s) => `<div class="card kpi"><small>${t}</small><b>${v}</b><small>${s}</small></div>`;
+      return `<div class="grid">${k('Mesas libres', libres + ' / ' + D.mesas.length, 'disponibles ahora')}
+        ${k('Pedidos activos', activos, 'en curso')}${k('Ventas facturadas', money(ventas), D.facturas.length + ' facturas')}
+        ${k('Productos', D.productos.length, D.productos.filter(p => p.disponible).length + ' disponibles')}</div>`;
+    }
+
+    function mesas() {
+      if (!D.mesas.length) return '<div class="empty">Aún no hay mesas. ¡Crea la primera!</div>';
+      return `<div class="grid">${D.mesas.map(m => `<div class="card mesa">
+        <div class="row"><span class="n">${m.numero}</span><span class="badge ${m.estado}">${m.estado}</span></div>
+        <div class="cap">👥 ${m.capacidad} personas</div>
+        <select onchange="api('mesa/estado',{id:${m.id},estado:this.value})">
+          ${['LIBRE', 'OCUPADA', 'RESERVADA', 'MANTENIMIENTO'].map(e => `<option ${e === m.estado ? 'selected' : ''}>${e}</option>`).join('')}
+        </select>
+        <button class="btn g s" onclick="api('mesa/eliminar',{id:${m.id}})">Eliminar</button>
+      </div>`).join('')}</div>`;
+    }
+
+    function menu() {
+      if (!D.productos.length) return '<div class="empty">No hay productos todavía.</div>';
+      return `<div class="grid">${D.productos.map(p => `<div class="card ${p.disponible ? '' : 'off'}">
+        <div class="emoji">${ICON[p.categoria] || '🍽️'}</div>
+        <h3>${p.nombre}</h3>
+        <p style="color:var(--mut);font-size:13px;margin:6px 0 12px">${p.descripcion || ''}</p>
+        <div class="row"><span class="price">${money(p.precio)}</span><span class="badge ${p.disponible ? 'LIBRE' : 'OCUPADA'}">${p.disponible ? 'Disponible' : 'Agotado'}</span></div>
+        <div class="row" style="margin-top:14px">
+          <button class="btn g s" onclick="api('producto/disponible',{id:${p.id},disponible:${!p.disponible}})">Alternar</button>
+          <button class="btn g s" onclick="api('producto/eliminar',{id:${p.id}})">Eliminar</button>
+        </div>
+      </div>`).join('')}</div>`;
+    }
+
+    function pedidos() {
+      return `<div class="kan">${ESTADOS_PEDIDO.map(est => {
+        const lista = D.pedidos.filter(p => p.estado === est);
+        const sig = FLUJO.includes(est) ? FLUJO[FLUJO.indexOf(est) + 1] : null;
+        return `<div class="col"><h3>${est.replace('_', ' ')} · ${lista.length}</h3>${lista.map(p => {
+          return `<div class="card"><div class="row"><b>Pedido #${p.id}</b><span class="badge OCUPADA">Mesa ${p.mesa}</span></div>
+            <div style="margin:10px 0">${p.items.map(i => `<div class="it"><span>${i.cantidad}× ${i.producto}</span><span>${money(i.precio * i.cantidad)}</span></div>`).join('') || '<div class="it">Sin ítems</div>'}</div>
+            <div class="row"><span class="price">${money(p.total)}</span></div>
+            <div class="row" style="margin-top:12px;flex-wrap:wrap">
+              ${est !== 'CANCELADO' && est !== 'PAGADO' && est !== 'ENTREGADO' ? `<button class="btn g s" onclick="nuevoItem(${p.id})">+ Ítem</button>` : ''}
+              ${sig ? `<button class="btn s" onclick="api('pedido/estado',{id:${p.id},estado:'${sig}'})">→ ${sig.replace('_', ' ')}</button>` : ''}
+              ${est === 'ENTREGADO' ? `<button class="btn s" onclick="api('factura/crear',{pedido:${p.id}}); aviso('Factura creada', true)">Facturar</button>` : ''}
+              ${est !== 'CANCELADO' && est !== 'PAGADO' ? `<button class="btn g s" onclick="api('pedido/estado',{id:${p.id},estado:'CANCELADO'})">Cancelar</button>` : ''}
+            </div>
+          </div>`;
+        }).join('')}</div>`;
+      }).join('')}</div>`;
+    }
+
+    function facturas() {
+      if (!D.facturas.length) return '<div class="empty">Todavía no hay facturas. Entrega un pedido y factúralo.</div>';
+      return `<div class="card"><table><tr><th>#</th><th>Pedido</th><th>Mesa</th><th>Fecha</th><th>Total</th></tr>${D.facturas.map(f =>
+        `<tr><td>${f.id}</td><td>#${f.pedido}</td><td>${f.mesa}</td><td>${new Date(f.fecha).toLocaleString()}</td><td class="price">${money(f.total)}</td></tr>`
+      ).join('')}</table></div>`;
+    }
+
+    const nuevaMesa = () => modal('Nueva mesa', campo('numero', 'Número', 'number') + campo('capacidad', 'Capacidad', 'number'), 'mesa/crear');
+    const nuevoProducto = () => modal('Nuevo producto',
+      campo('nombre', 'Nombre') +
+      campo('descripcion', 'Descripción') +
+      campo('precio', 'Precio', 'number') +
+      `<label>Categoría</label><select name="categoria"><option>Bebidas</option><option>Platos</option><option>Postres</option><option>General</option></select>`,
+      'producto/crear'
+    );
+
+    function nuevoPedido() {
+      const libres = D.mesas.filter(m => m.estado === 'LIBRE');
+      if (!libres.length) return aviso('No hay mesas libres');
+      modal('Nuevo pedido', `<label>Mesa</label><select name="mesa">${libres.map(m => `<option value="${m.numero}">Mesa ${m.numero} (${m.capacidad} pers.)</option>`).join('')}</select>`, 'pedido/crear');
+    }
+
+    function nuevoItem(id) {
+      const disp = D.productos.filter(p => p.disponible);
+      modal('Agregar ítem',
+        `<label>Producto</label><select name="producto">${disp.map(p => `<option value="${p.id}">${p.nombre} — ${money(p.precio)}</option>`).join('')}</select>` +
+        campo('cantidad', 'Cantidad', 'number', 1) +
+        `<label>Notas</label><input name="notas" placeholder="Sin cebolla, etc.">`,
+        'pedido/item', { pedido: id }
+      );
+      setTimeout(() => {
+        const input = $('#form input[name="cantidad"]');
+        if (input) input.min = '1';
+      }, 0);
+    }
+
+    $('#modal').onclick = e => { if (e.target.id === 'modal') cerrar(); };
+    api('datos');
+  </script>
+</body>
+</html>

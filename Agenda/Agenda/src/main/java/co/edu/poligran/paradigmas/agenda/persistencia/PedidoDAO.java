@@ -143,7 +143,8 @@ public class PedidoDAO implements ICrudDAO<Pedido> {
     }
 
     private boolean esActivo(EstadoPedido estado) {
-        return estado != null && estado != EstadoPedido.ENTREGADO && estado != EstadoPedido.CANCELADO;
+        return estado != null && estado != EstadoPedido.ENTREGADO && estado != EstadoPedido.PAGADO
+                && estado != EstadoPedido.CANCELADO;
     }
 
     private int indicePorId(List<Pedido> lista, long id) {

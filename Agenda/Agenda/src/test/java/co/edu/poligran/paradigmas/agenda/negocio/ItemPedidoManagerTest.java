@@ -37,4 +37,18 @@ class ItemPedidoManagerTest {
         Assertions.assertEquals(2, item.getCantidad());
         Assertions.assertEquals(1, manager.buscarPorPedido(10).size());
     }
+
+    @Test
+    void noDebePermitirCantidadMenorAUnoNiEstadoPagadoComoActivo() {
+        Mesa mesa = new Mesa(1, 2, 4, EstadoMesa.OCUPADA);
+        Usuario mesero = new Usuario(1, "Ana", "Pérez", "ana", RolUsuario.MESERO, true);
+        Pedido pedido = new Pedido(10, mesa, mesero, EstadoPedido.PAGADO);
+        Producto producto = new Producto(20, "Hamburguesa", new Categoria(1, "Platos", true), new BigDecimal("12000"), true, "");
+
+        IllegalArgumentException ex = Assertions.assertThrows(IllegalArgumentException.class,
+                () -> new ItemPedido(1, pedido, producto, 0, ""));
+        Assertions.assertTrue(ex.getMessage().contains("mayor que"));
+
+        Assertions.assertEquals(EstadoPedido.PAGADO, pedido.getEstado());
+    }
 }

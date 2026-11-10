@@ -22,7 +22,19 @@ public class Agenda {
     private final Usuario mesero = new Usuario(1, "Mesero", "Demo", "mesero", RolUsuario.MESERO, true);
 
     public static void main(String[] args) {
-        new Agenda().iniciar();
+        try {
+            co.edu.poligran.paradigmas.agenda.web.ServidorWeb.main(args);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Mantiene la consola disponible para uso manual si la quieres invocar
+     * explícitamente desde código, pero el botón Run arrancará la web.
+     */
+    public void iniciarConsola() {
+        iniciar();
     }
 
     private void iniciar() {

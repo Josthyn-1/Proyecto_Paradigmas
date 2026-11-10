@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Agenda Web",
+      "type": "java",
+      "request": "launch",
+      "mainClass": "co.edu.poligran.paradigmas.agenda.web.ServidorWeb",
+      "projectName": "Agenda",
+      "console": "internalConsole"
+    }
+  ]
+}

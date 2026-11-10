@@ -14,7 +14,7 @@ public class ItemPedido {
         this.id = id;
         this.pedido = pedido;
         this.producto = producto;
-        this.cantidad = cantidad;
+        this.cantidad = validarCantidad(cantidad);
         this.precioUnitarioHistorico = producto == null ? null : producto.getPrecio();
         this.observaciones = normalizarObservaciones(observaciones);
     }
@@ -40,7 +40,7 @@ public class ItemPedido {
     }
 
     public void setCantidad(int cantidad) {
-        this.cantidad = cantidad;
+        this.cantidad = validarCantidad(cantidad);
     }
 
     public BigDecimal getPrecioUnitarioHistorico() {
@@ -65,5 +65,12 @@ public class ItemPedido {
 
     private String normalizarObservaciones(String valor) {
         return valor == null ? "" : valor.trim();
+    }
+
+    private int validarCantidad(int cantidad) {
+        if (cantidad <= 0) {
+            throw new IllegalArgumentException("La cantidad debe ser mayor que cero");
+        }
+        return cantidad;
     }
 }
