@@ -2,7 +2,7 @@ package co.edu.poligran.paradigmas.agenda.modelo;
 
 public class Pedido {
     private long id;
-    private final Mesa mesa;
+    private Mesa mesa;
     private final Usuario mesero;
     private EstadoPedido estado;
 
@@ -23,6 +23,10 @@ public class Pedido {
 
     public Mesa getMesa() {
         return mesa;
+    }
+
+    public void setMesa(Mesa mesa) {
+        this.mesa = mesa;
     }
 
     public Usuario getMesero() {

@@ -35,7 +35,53 @@ public class MesaManager extends BaseManager<Mesa> {
         return mesaDAO.consultarOcupadas(registros());
     }
 
+    public List<Mesa> consultarReservadas() {
+        return mesaDAO.consultarReservadas(registros());
+    }
+
+    public List<Mesa> consultarEnMantenimiento() {
+        return mesaDAO.consultarEnMantenimiento(registros());
+    }
+
     public boolean actualizarEstado(long id, EstadoMesa estado) {
         return mesaDAO.actualizarEstado(registros(), id, estado);
+    }
+
+    public boolean abrirMesa(long idMesa) {
+        if (idMesa <= 0) {
+            throw new IllegalArgumentException("El ID de la mesa es obligatorio");
+        }
+        return actualizarEstado(idMesa, EstadoMesa.OCUPADA);
+    }
+
+    public boolean liberarMesa(long idMesa) {
+        if (idMesa <= 0) {
+            throw new IllegalArgumentException("El ID de la mesa es obligatorio");
+        }
+        return actualizarEstado(idMesa, EstadoMesa.LIBRE);
+    }
+
+    public boolean reservarMesa(long idMesa) {
+        if (idMesa <= 0) {
+            throw new IllegalArgumentException("El ID de la mesa es obligatorio");
+        }
+        return actualizarEstado(idMesa, EstadoMesa.RESERVADA);
+    }
+
+    public boolean ponerEnMantenimiento(long idMesa) {
+        if (idMesa <= 0) {
+            throw new IllegalArgumentException("El ID de la mesa es obligatorio");
+        }
+        return actualizarEstado(idMesa, EstadoMesa.MANTENIMIENTO);
+    }
+
+    public boolean actualizarEstadoPorPedido(long idMesa, boolean pedidoAbierto, boolean facturaPagada) {
+        if (pedidoAbierto) {
+            return abrirMesa(idMesa);
+        }
+        if (facturaPagada) {
+            return liberarMesa(idMesa);
+        }
+        return false;
     }
 }

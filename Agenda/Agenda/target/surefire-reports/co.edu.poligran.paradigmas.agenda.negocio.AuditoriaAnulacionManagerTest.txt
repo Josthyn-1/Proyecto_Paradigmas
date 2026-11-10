@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: co.edu.poligran.paradigmas.agenda.negocio.AuditoriaAnulacionManagerTest
 -------------------------------------------------------------------------------
-Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.063 s -- in co.edu.poligran.paradigmas.agenda.negocio.AuditoriaAnulacionManagerTest
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.048 s -- in co.edu.poligran.paradigmas.agenda.negocio.AuditoriaAnulacionManagerTest

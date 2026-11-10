@@ -101,6 +101,14 @@ public class MesaDAO implements ICrudDAO<Mesa> {
         return buscarPorEstado(lista, EstadoMesa.OCUPADA);
     }
 
+    public List<Mesa> consultarReservadas(List<Mesa> lista) {
+        return buscarPorEstado(lista, EstadoMesa.RESERVADA);
+    }
+
+    public List<Mesa> consultarEnMantenimiento(List<Mesa> lista) {
+        return buscarPorEstado(lista, EstadoMesa.MANTENIMIENTO);
+    }
+
     public boolean actualizarEstado(List<Mesa> lista, long id, EstadoMesa estado) {
         validarLista(lista);
         if (estado == null) {

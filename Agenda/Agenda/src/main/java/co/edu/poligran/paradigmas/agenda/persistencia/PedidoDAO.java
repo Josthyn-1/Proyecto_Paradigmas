@@ -1,10 +1,12 @@
 package co.edu.poligran.paradigmas.agenda.persistencia;
 
 import co.edu.poligran.paradigmas.agenda.modelo.EstadoPedido;
+import co.edu.poligran.paradigmas.agenda.modelo.Mesa;
 import co.edu.poligran.paradigmas.agenda.modelo.Pedido;
 import co.edu.poligran.paradigmas.agenda.modelo.RolUsuario;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -88,6 +90,20 @@ public class PedidoDAO implements ICrudDAO<Pedido> {
         return Collections.unmodifiableList(resultado);
     }
 
+    public List<Pedido> listarPendientesYEnPreparacion(List<Pedido> lista) {
+        validarLista(lista);
+        List<Pedido> resultado = new ArrayList<>();
+        for (Pedido pedido : lista) {
+            if (pedido != null && (pedido.getEstado() == EstadoPedido.PENDIENTE
+                    || pedido.getEstado() == EstadoPedido.RECIBIDO
+                    || pedido.getEstado() == EstadoPedido.EN_PREPARACION)) {
+                resultado.add(pedido);
+            }
+        }
+        resultado.sort(Comparator.comparingLong(Pedido::getId));
+        return Collections.unmodifiableList(resultado);
+    }
+
     public boolean actualizarEstado(List<Pedido> lista, long id, EstadoPedido estado) {
         validarLista(lista);
         if (estado == null) {
@@ -96,6 +112,23 @@ public class PedidoDAO implements ICrudDAO<Pedido> {
         Optional<Pedido> pedido = buscarPorId(lista, id);
         pedido.ifPresent(valor -> valor.setEstado(estado));
         return pedido.isPresent();
+    }
+
+    public boolean actualizarMesaPedido(List<Pedido> lista, long idPedido, long nuevaMesaId) {
+        validarLista(lista);
+        if (nuevaMesaId <= 0) {
+            throw new IllegalArgumentException("La nueva mesa es obligatoria");
+        }
+        Optional<Pedido> pedido = buscarPorId(lista, idPedido);
+        if (!pedido.isPresent()) {
+            return false;
+        }
+        pedido.get().setMesa(new Mesa(nuevaMesaId, 0, 0, null));
+        return true;
+    }
+
+    public String sqlActualizarMesaPedido() {
+        return "UPDATE pedidos SET id_mesa = ? WHERE id_pedido = ?";
     }
 
     public long siguienteId(List<Pedido> lista) {

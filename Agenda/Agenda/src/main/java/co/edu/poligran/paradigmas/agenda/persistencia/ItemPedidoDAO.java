@@ -18,7 +18,7 @@ public class ItemPedidoDAO implements ICrudDAO<ItemPedido> {
         } else if (buscarPorId(lista, item.getId()).isPresent()) {
             throw new IllegalArgumentException("Ya existe un item de pedido con ese ID");
         }
-        item.setNotas(item.getNotas().trim());
+        item.setObservaciones(item.getObservaciones().trim());
         lista.add(item);
         return item;
     }
@@ -37,7 +37,7 @@ public class ItemPedidoDAO implements ICrudDAO<ItemPedido> {
             throw new IllegalArgumentException("No se puede cambiar el pedido o producto de un item existente");
         }
         actual.setCantidad(item.getCantidad());
-        actual.setNotas(item.getNotas().trim());
+        actual.setObservaciones(item.getObservaciones().trim());
         return actual;
     }
 
@@ -94,8 +94,25 @@ public class ItemPedidoDAO implements ICrudDAO<ItemPedido> {
     public boolean actualizarNotas(List<ItemPedido> lista, long id, String notas) {
         validarLista(lista);
         Optional<ItemPedido> item = buscarPorId(lista, id);
-        item.ifPresent(valor -> valor.setNotas(notas == null ? "" : notas.trim()));
+        item.ifPresent(valor -> valor.setObservaciones(notas));
         return item.isPresent();
+    }
+
+    public boolean actualizarObservaciones(List<ItemPedido> lista, long id, String observaciones) {
+        return actualizarNotas(lista, id, observaciones);
+    }
+
+    public String sqlProductoMasVendido() {
+        return "SELECT id_producto, SUM(cantidad) AS total_vendido "
+                + "FROM item_pedido GROUP BY id_producto ORDER BY total_vendido DESC LIMIT 1";
+    }
+
+    public String sqlInsertItemPedido() {
+        return "INSERT INTO item_pedido (id_pedido, id_producto, cantidad, observaciones) VALUES (?, ?, ?, ?)";
+    }
+
+    public String sqlSelectItemsByPedido() {
+        return "SELECT id_item_pedido, id_pedido, id_producto, cantidad, observaciones FROM item_pedido WHERE id_pedido = ? ORDER BY id_item_pedido ASC";
     }
 
     public long siguienteId(List<ItemPedido> lista) {
@@ -146,8 +163,8 @@ public class ItemPedidoDAO implements ICrudDAO<ItemPedido> {
         if (precio == null || precio.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException("El precio unitario histórico debe ser mayor o igual a cero");
         }
-        if (item.getNotas() == null) {
-            throw new IllegalArgumentException("Las notas no pueden ser null");
+        if (item.getObservaciones() == null) {
+            throw new IllegalArgumentException("Las observaciones no pueden ser null");
         }
     }
 }

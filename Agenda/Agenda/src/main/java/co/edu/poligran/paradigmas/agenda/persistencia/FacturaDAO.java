@@ -5,6 +5,7 @@ import co.edu.poligran.paradigmas.agenda.modelo.Factura;
 import co.edu.poligran.paradigmas.agenda.modelo.Pago;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -107,6 +108,45 @@ public class FacturaDAO implements ICrudDAO<Factura> {
             }
         }
         return maximo + 1;
+    }
+
+    public String sqlInsertFactura() {
+        return "INSERT INTO facturas (id_pedido, subtotal, impuestos, propinas, descuento, total_con_descuento, fecha_hora) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?)";
+    }
+
+    public String sqlActualizarDescuentoFactura() {
+        return "UPDATE facturas SET descuento = ?, total_con_descuento = ? WHERE id_factura = ?";
+    }
+
+    public String sqlTotalRecaudadoEnRango() {
+        return "SELECT COALESCE(SUM(subtotal + impuestos + propinas), 0) AS total_recaudado, "
+                + "COUNT(*) AS cantidad_facturas FROM facturas WHERE fecha_hora >= ? AND fecha_hora <= ?";
+    }
+
+    public String sqlTotalRecaudadoEnFecha() {
+        return "SELECT COALESCE(SUM(subtotal + impuestos + propinas), 0) AS total_recaudado, "
+                + "COUNT(*) AS cantidad_facturas FROM facturas WHERE DATE(fecha_hora) = DATE(?)";
+    }
+
+    public BigDecimal totalRecaudado(List<Factura> facturas, Instant fechaInicio, Instant fechaFin) {
+        validarLista(facturas);
+        if (fechaInicio == null || fechaFin == null) {
+            throw new IllegalArgumentException("Las fechas de inicio y fin son obligatorias");
+        }
+        if (fechaInicio.isAfter(fechaFin)) {
+            throw new IllegalArgumentException("La fecha de inicio no puede ser posterior a la de fin");
+        }
+
+        BigDecimal total = BigDecimal.ZERO;
+        for (Factura factura : facturas) {
+            if (factura != null && factura.getFechaHora() != null
+                    && !factura.getFechaHora().isBefore(fechaInicio)
+                    && !factura.getFechaHora().isAfter(fechaFin)) {
+                total = total.add(factura.getTotal());
+            }
+        }
+        return total;
     }
 
     private BigDecimal calcularSaldoPendiente(Factura factura, List<? extends Pago> pagos) {

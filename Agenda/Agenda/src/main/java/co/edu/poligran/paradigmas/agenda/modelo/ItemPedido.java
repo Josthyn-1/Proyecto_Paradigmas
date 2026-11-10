@@ -8,15 +8,15 @@ public class ItemPedido {
     private final Producto producto;
     private int cantidad;
     private final BigDecimal precioUnitarioHistorico;
-    private String notas;
+    private String observaciones;
 
-    public ItemPedido(long id, Pedido pedido, Producto producto, int cantidad, String notas) {
+    public ItemPedido(long id, Pedido pedido, Producto producto, int cantidad, String observaciones) {
         this.id = id;
         this.pedido = pedido;
         this.producto = producto;
         this.cantidad = cantidad;
         this.precioUnitarioHistorico = producto == null ? null : producto.getPrecio();
-        this.notas = notas == null ? "" : notas;
+        this.observaciones = normalizarObservaciones(observaciones);
     }
 
     public long getId() {
@@ -47,11 +47,23 @@ public class ItemPedido {
         return precioUnitarioHistorico;
     }
 
+    public String getObservaciones() {
+        return observaciones;
+    }
+
+    public void setObservaciones(String observaciones) {
+        this.observaciones = normalizarObservaciones(observaciones);
+    }
+
     public String getNotas() {
-        return notas;
+        return getObservaciones();
     }
 
     public void setNotas(String notas) {
-        this.notas = notas == null ? "" : notas;
+        setObservaciones(notas);
+    }
+
+    private String normalizarObservaciones(String valor) {
+        return valor == null ? "" : valor.trim();
     }
 }
