@@ -7,9 +7,16 @@ import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URLDecoder;
+import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ConcurrentHashMap;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
 import java.util.*;
 
 /**
@@ -24,7 +31,12 @@ public class ServidorWeb {
     private final ItemPedidoManager items = new ItemPedidoManager();
     private final HistorialEstadoManager historial = new HistorialEstadoManager();
     private final FacturaManager facturas = new FacturaManager();
-    private final Usuario mesero = new Usuario(1, "Mesero", "Demo", "mesero", RolUsuario.MESERO, true);
+    private final UsuarioManager usuarios = new UsuarioManager();
+    private final SecureRandom random = new SecureRandom();
+    private final Map<String, Long> sesiones = new ConcurrentHashMap<>();
+
+    private static final String COOKIE_SESION = "AGENDA_SESSION";
+    private static final int ITERACIONES_CLAVE = 120_000;
 
     public static void main(String[] args) throws IOException {
         int puerto = args.length > 0 ? Integer.parseInt(args[0]) : 8080;
@@ -33,8 +45,7 @@ public class ServidorWeb {
             try {
                 ServidorWeb app = new ServidorWeb();
                 app.datosDemo();
-                HttpServer server = HttpServer.create(new InetSocketAddress(intento), 0);
-                server.createContext("/", app::manejar);
+                HttpServer server = app.crearServidor(intento);
                 server.start();
                 System.out.println("Abre en el navegador: http://localhost:" + intento);
                 return;
@@ -48,7 +59,20 @@ public class ServidorWeb {
         }
     }
 
-    private void datosDemo() {
+    HttpServer crearServidor(int puerto) throws IOException {
+        HttpServer server = HttpServer.create(
+                new InetSocketAddress(InetAddress.getLoopbackAddress(), puerto), 0);
+        server.createContext("/", this::manejar);
+        return server;
+    }
+
+    void datosDemo() {
+        usuarios.buscarPorNombreAcceso("admin").orElseGet(() -> {
+            byte[][] credencial = crearCredencial("admin");
+            return usuarios.crear(new Usuario(0, "Administrador", "Sistema", "admin",
+                    RolUsuario.ADMINISTRADOR, true, credencial[0], credencial[1]));
+        });
+
         for (int i = 1; i <= 6; i++) {
             mesas.crear(new Mesa(0, i, i % 2 == 0 ? 4 : 2, EstadoMesa.LIBRE));
         }
@@ -70,22 +94,50 @@ public class ServidorWeb {
             if (ruta.startsWith("/api/")) {
                 String cuerpo;
                 synchronized (this) {
-                    cuerpo = api(ruta, leerForm(ex));
+                    cuerpo = api(ex, ruta, leerForm(ex));
                 }
                 enviar(ex, 200, "application/json", cuerpo.getBytes(StandardCharsets.UTF_8));
             } else {
                 estatico(ex, ruta);
             }
+        } catch (ErrorApi e) {
+            enviar(ex, e.codigo, "application/json",
+                    json(m("error", e.getMessage())).getBytes(StandardCharsets.UTF_8));
         } catch (Exception e) {
             String msg = e.getMessage() == null ? e.toString() : e.getMessage();
             enviar(ex, 400, "application/json", json(m("error", msg)).getBytes(StandardCharsets.UTF_8));
         }
     }
 
-    private String api(String ruta, Map<String, String> p) {
+    private String api(HttpExchange ex, String ruta, Map<String, String> p) {
+        if ("/api/login".equals(ruta)) {
+            String nombreAcceso = p.getOrDefault("usuario", "");
+            String clave = p.getOrDefault("clave", "");
+            Usuario usuario = usuarios.buscarPorNombreAcceso(nombreAcceso)
+                    .filter(u -> u.isActivo() && validarClave(clave, u))
+                    .orElseThrow(() -> new ErrorApi(401, "Usuario o clave incorrectos"));
+            byte[] token = new byte[32];
+            random.nextBytes(token);
+            String sesion = Base64.getUrlEncoder().withoutPadding().encodeToString(token);
+            sesiones.put(sesion, usuario.getId());
+            agregarCookie(ex, sesion);
+            return json(datos(usuario));
+        }
+        if ("/api/logout".equals(ruta)) {
+            String sesion = tokenSesion(ex);
+            if (sesion != null) {
+                sesiones.remove(sesion);
+            }
+            agregarCookie(ex, "");
+            return json(m("cerrarSesion", true));
+        }
+
+        Usuario actor = usuarioSesion(ex);
+        if ("/api/session".equals(ruta) || "/api/datos".equals(ruta)) {
+            return json(datos(actor));
+        }
+
         switch (ruta) {
-            case "/api/datos":
-                break;
             case "/api/mesa/crear":
                 mesas.crear(new Mesa(0, (int) num(p, "numero"), (int) num(p, "capacidad"), EstadoMesa.LIBRE));
                 break;
@@ -114,7 +166,7 @@ public class ServidorWeb {
                 if (mesa.getEstado() != EstadoMesa.LIBRE) {
                     throw new IllegalArgumentException("La mesa no está libre");
                 }
-                pedidos.crear(new Pedido(0, mesa, mesero, EstadoPedido.RECIBIDO));
+                pedidos.crear(new Pedido(0, mesa, actor, EstadoPedido.RECIBIDO));
                 mesas.actualizarEstado(mesa.getId(), EstadoMesa.OCUPADA);
                 break;
             }
@@ -127,7 +179,7 @@ public class ServidorWeb {
                 break;
             }
             case "/api/pedido/estado":
-                historial.registrarCambioEstado(pedidos, num(p, "id"), EstadoPedido.valueOf(p.get("estado")), mesero);
+                historial.registrarCambioEstado(pedidos, num(p, "id"), EstadoPedido.valueOf(p.get("estado")), actor);
                 break;
             case "/api/pedido/eliminar":
                 pedidos.eliminar(num(p, "id"));
@@ -143,14 +195,57 @@ public class ServidorWeb {
                 mesas.actualizarEstado(ped.getMesa().getId(), EstadoMesa.LIBRE);
                 break;
             }
+            case "/api/usuarios/crear":
+                exigirAdministrador(actor);
+                String clave = p.getOrDefault("clave", "");
+                if (clave.length() < 4) {
+                    throw new IllegalArgumentException("La clave debe tener al menos 4 caracteres");
+                }
+                RolUsuario rolNuevo = rol(p.get("rol"));
+                byte[][] credencial = crearCredencial(clave);
+                usuarios.crear(new Usuario(0, requerido(p, "nombre"), requerido(p, "apellido"),
+                        requerido(p, "nombreAcceso"), rolNuevo, true, credencial[0], credencial[1]));
+                break;
+            case "/api/usuarios/rol": {
+                exigirAdministrador(actor);
+                Usuario objetivo = usuarioPorId(num(p, "id"));
+                protegerAdministrador(objetivo);
+                RolUsuario nuevoRol = rol(p.get("rol"));
+                if (objetivo.getId() == actor.getId() && nuevoRol != RolUsuario.ADMINISTRADOR) {
+                    throw new IllegalArgumentException("No puedes quitarte el rol de administrador");
+                }
+                usuarios.actualizarRol(objetivo.getId(), nuevoRol);
+                break;
+            }
+            case "/api/usuarios/estado": {
+                exigirAdministrador(actor);
+                Usuario objetivo = usuarioPorId(num(p, "id"));
+                protegerAdministrador(objetivo);
+                if (objetivo.getId() == actor.getId() && Boolean.parseBoolean(p.get("activo")) == false) {
+                    throw new IllegalArgumentException("No puedes desactivar tu propia cuenta");
+                }
+                usuarios.actualizarEstado(objetivo.getId(), Boolean.parseBoolean(p.get("activo")));
+                break;
+            }
+            case "/api/usuarios/eliminar": {
+                exigirAdministrador(actor);
+                Usuario objetivo = usuarioPorId(num(p, "id"));
+                protegerAdministrador(objetivo);
+                if (objetivo.getId() == actor.getId()) {
+                    throw new IllegalArgumentException("No puedes eliminar tu propia cuenta");
+                }
+                usuarios.eliminar(objetivo.getId());
+                sesiones.entrySet().removeIf(s -> s.getValue().equals(objetivo.getId()));
+                break;
+            }
             default:
                 throw new IllegalArgumentException("Ruta desconocida: " + ruta);
         }
 
-        return json(datos());
+        return json(datos(actor));
     }
 
-    private Map<String, Object> datos() {
+    private Map<String, Object> datos(Usuario usuario) {
         List<Object> lm = new ArrayList<>();
         List<Object> lp = new ArrayList<>();
         List<Object> lpe = new ArrayList<>();
@@ -181,7 +276,122 @@ public class ServidorWeb {
                     "total", x.getTotal(), "fecha", String.valueOf(x.getFechaHora())));
         }
 
-        return m("mesas", lm, "productos", lp, "pedidos", lpe, "facturas", lf);
+        Map<String, Object> respuesta = m("usuario", usuarioPublico(usuario),
+                "mesas", lm, "productos", lp, "pedidos", lpe, "facturas", lf);
+        if (usuario.getRol() == RolUsuario.ADMINISTRADOR) {
+            List<Object> listaUsuarios = new ArrayList<>();
+            for (Usuario u : usuarios.listar()) {
+                listaUsuarios.add(usuarioPublico(u));
+            }
+            respuesta.put("usuarios", listaUsuarios);
+        }
+        return respuesta;
+    }
+
+    private Map<String, Object> usuarioPublico(Usuario usuario) {
+        return m("id", usuario.getId(), "nombre", usuario.getNombre(), "apellido", usuario.getApellido(),
+                "nombreAcceso", usuario.getNombreAcceso(), "rol", usuario.getRol(), "activo", usuario.isActivo());
+    }
+
+    private Usuario usuarioSesion(HttpExchange ex) {
+        String sesion = tokenSesion(ex);
+        Long id = sesion == null ? null : sesiones.get(sesion);
+        Usuario usuario = id == null ? null : usuarios.buscarPorId(id).orElse(null);
+        if (usuario == null || !usuario.isActivo()) {
+            if (sesion != null) {
+                sesiones.remove(sesion);
+            }
+            throw new ErrorApi(401, "Inicia sesión para continuar");
+        }
+        return usuario;
+    }
+
+    private String tokenSesion(HttpExchange ex) {
+        List<String> cookies = ex.getRequestHeaders().get("Cookie");
+        if (cookies == null) {
+            return null;
+        }
+        for (String cookie : cookies) {
+            for (String parte : cookie.split(";")) {
+                String[] valor = parte.trim().split("=", 2);
+                if (valor.length == 2 && COOKIE_SESION.equals(valor[0])) {
+                    return valor[1];
+                }
+            }
+        }
+        return null;
+    }
+
+    private void agregarCookie(HttpExchange ex, String token) {
+        String valor = COOKIE_SESION + "=" + token + "; Path=/; HttpOnly; SameSite=Strict";
+        if (token.isEmpty()) {
+            valor += "; Max-Age=0";
+        }
+        ex.getResponseHeaders().add("Set-Cookie", valor);
+    }
+
+    private byte[][] crearCredencial(String clave) {
+        byte[] sal = new byte[16];
+        random.nextBytes(sal);
+        return new byte[][] { derivarClave(clave, sal), sal };
+    }
+
+    private boolean validarClave(String clave, Usuario usuario) {
+        byte[] hash = usuario.getClaveHash();
+        byte[] sal = usuario.getClaveSal();
+        return hash != null && sal != null && MessageDigest.isEqual(hash, derivarClave(clave, sal));
+    }
+
+    private byte[] derivarClave(String clave, byte[] sal) {
+        PBEKeySpec spec = new PBEKeySpec(clave.toCharArray(), sal, ITERACIONES_CLAVE, 256);
+        try {
+            return SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).getEncoded();
+        } catch (GeneralSecurityException e) {
+            throw new IllegalStateException("No se pudo procesar la clave", e);
+        } finally {
+            spec.clearPassword();
+        }
+    }
+
+    private Usuario usuarioPorId(long id) {
+        return usuarios.buscarPorId(id).orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
+    }
+
+    private void exigirAdministrador(Usuario actor) {
+        if (actor.getRol() != RolUsuario.ADMINISTRADOR) {
+            throw new ErrorApi(403, "Solo un administrador puede gestionar usuarios");
+        }
+    }
+
+    private void protegerAdministrador(Usuario usuario) {
+        if ("admin".equalsIgnoreCase(usuario.getNombreAcceso())) {
+            throw new IllegalArgumentException("La cuenta de administrador predeterminada no se puede modificar");
+        }
+    }
+
+    private String requerido(Map<String, String> p, String campo) {
+        String valor = p.get(campo);
+        if (valor == null || valor.trim().isEmpty()) {
+            throw new IllegalArgumentException("El campo '" + campo + "' es obligatorio");
+        }
+        return valor.trim();
+    }
+
+    private RolUsuario rol(String valor) {
+        try {
+            return RolUsuario.valueOf(valor);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Rol inválido");
+        }
+    }
+
+    private static final class ErrorApi extends RuntimeException {
+        private final int codigo;
+
+        private ErrorApi(int codigo, String mensaje) {
+            super(mensaje);
+            this.codigo = codigo;
+        }
     }
 
     private BigDecimal precio(ItemPedido i) {

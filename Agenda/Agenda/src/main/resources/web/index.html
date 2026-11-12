@@ -88,6 +88,15 @@
     th, td { text-align: left; padding: 14px; border-bottom: 1px solid var(--line); }
     th { color: var(--mut); font-size: 12px; text-transform: uppercase; }
     .empty { color: var(--mut); padding: 30px; text-align: center; }
+    #cuenta { color: var(--mut); font-size: 13px; margin-right: 14px; white-space: nowrap; }
+    #login { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 20px; background: var(--bg); }
+    #login form { width: min(390px, 100%); padding: 30px; background: var(--panel); border: 1px solid var(--line); border-radius: 20px; }
+    #login h1 { margin-bottom: 8px; }
+    #login p { color: var(--mut); margin-bottom: 22px; }
+    #loginError { min-height: 20px; color: var(--busy); font-size: 13px; margin-bottom: 12px; }
+    #login .btn { width: 100%; }
+    body:not(.authenticated) aside, body:not(.authenticated) main { display: none; }
+    body.authenticated #login { display: none; }
     #modal { position: fixed; inset: 0; background: #000a; display: none; place-items: center; backdrop-filter: blur(4px); z-index: 5; }
     #modal.on { display: grid; }
     #modal form { background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 28px; width: min(420px, 92vw); animation: up .3s; }
@@ -100,6 +109,18 @@
   </style>
 </head>
 <body>
+  <div id="login">
+    <form onsubmit="iniciarSesion(event)">
+      <h1>🍽️ Polirestaurante</h1>
+      <p>Inicia sesión para continuar</p>
+      <label for="loginUsuario">Usuario</label>
+      <input id="loginUsuario" name="usuario" autocomplete="username" required>
+      <label for="loginClave">Clave</label>
+      <input id="loginClave" name="clave" type="password" autocomplete="current-password" required>
+      <div id="loginError"></div>
+      <button class="btn">Iniciar sesión</button>
+    </form>
+  </div>
   <aside>
     <div class="logo">🍽️ Agenda</div>
     <nav id="nav"></nav>
@@ -108,6 +129,7 @@
   <main>
     <header>
       <h1 id="titulo"></h1>
+      <div id="cuenta"></div>
       <div id="acciones"></div>
     </header>
     <section id="vista"></section>
@@ -122,18 +144,55 @@
     const ICON = { Bebidas: '🥤', Platos: '🍝', Postres: '🍰', General: '🍽️' };
     const FLUJO = ['PENDIENTE', 'RECIBIDO', 'EN_PREPARACION', 'LISTO', 'ENTREGADO'];
     const ESTADOS_PEDIDO = [...FLUJO, 'PAGADO', 'CANCELADO'];
-    const VISTAS = { panel: ['📊', 'Panel'], mesas: ['🪑', 'Mesas'], menu: ['📖', 'Menú'], pedidos: ['🧾', 'Pedidos'], facturas: ['💳', 'Facturas'] };
-    let D = { mesas: [], productos: [], pedidos: [], facturas: [] }, vista = 'panel';
+    const VISTAS = { panel: ['📊', 'Panel'], mesas: ['🪑', 'Mesas'], menu: ['📖', 'Menú'], pedidos: ['🧾', 'Pedidos'], facturas: ['💳', 'Facturas'], usuarios: ['👥', 'Usuarios'] };
+    let D = { mesas: [], productos: [], pedidos: [], facturas: [], usuarios: [] }, vista = 'panel';
 
     async function api(ruta, datos) {
       try {
         const r = await fetch('/api/' + ruta, datos ? { method: 'POST', body: new URLSearchParams(datos) } : {});
         const j = await r.json();
-        if (!r.ok) throw new Error(j.error);
+        if (!r.ok) {
+          if (r.status === 401) document.body.classList.remove('authenticated');
+          throw new Error(j.error);
+        }
         D = j;
+        document.body.classList.add('authenticated');
         pintar();
       } catch (e) {
+        if (ruta === 'session' && !document.body.classList.contains('authenticated')) return;
         aviso(e.message);
+      }
+    }
+
+    async function iniciarSesion(event) {
+      event.preventDefault();
+      const error = $('#loginError');
+      error.textContent = '';
+      try {
+        const r = await fetch('/api/login', {
+          method: 'POST',
+          body: new URLSearchParams(Object.fromEntries(new FormData(event.target)))
+        });
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error);
+        D = j;
+        document.body.classList.add('authenticated');
+        vista = 'panel';
+        pintar();
+      } catch (e) {
+        error.textContent = e.message;
+      }
+    }
+
+    async function cerrarSesion() {
+      try {
+        await fetch('/api/logout', { method: 'POST' });
+        document.body.classList.remove('authenticated');
+        vista = 'panel';
+        $('#loginClave').value = '';
+        $('#loginUsuario').focus();
+      } catch (e) {
+        aviso('No se pudo cerrar la sesión');
       }
     }
 
@@ -155,18 +214,38 @@
     }
     const cerrar = () => $('#modal').classList.remove('on');
     const campo = (n, l, t = 'text', v = '') => `<label>${l}</label><input name="${n}" type="${t}" value="${v}" required step="any">`;
+    const escapar = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
     function pintar() {
-      $('#nav').innerHTML = Object.entries(VISTAS).map(([k, [i, t]]) =>
+      const vistas = { ...VISTAS };
+      if (D.usuario?.rol !== 'ADMINISTRADOR') delete vistas.usuarios;
+      if (!vistas[vista]) vista = 'panel';
+      $('#nav').innerHTML = Object.entries(vistas).map(([k, [i, t]]) =>
         `<button class="${k === vista ? 'on' : ''}" onclick="vista='${k}'; pintar()">${i} ${t}</button>`
       ).join('');
-      $('#titulo').textContent = VISTAS[vista][1];
+      $('#titulo').textContent = vistas[vista][1];
+      $('#cuenta').innerHTML = `${escapar(D.usuario.nombre)} · ${escapar(D.usuario.rol)} <button class="btn g s" onclick="cerrarSesion()">Salir</button>`;
       $('#acciones').innerHTML = {
         mesas: `<button class="btn" onclick="nuevaMesa()">+ Nueva mesa</button>`,
         menu: `<button class="btn" onclick="nuevoProducto()">+ Nuevo producto</button>`,
-        pedidos: `<button class="btn" onclick="nuevoPedido()">+ Nuevo pedido</button>`
+        pedidos: `<button class="btn" onclick="nuevoPedido()">+ Nuevo pedido</button>`,
+        usuarios: `<button class="btn" onclick="nuevoUsuario()">+ Nuevo usuario</button>`
       }[vista] || '';
-      $('#vista').innerHTML = ({ panel, mesas, menu, pedidos, facturas })[vista]();
+      $('#vista').innerHTML = ({ panel, mesas, menu, pedidos, facturas, usuarios: vistaUsuarios })[vista]();
+    }
+
+    function vistaUsuarios() {
+      if (!D.usuarios.length) return '<div class="empty">No hay usuarios registrados.</div>';
+      const roles = ['ADMINISTRADOR', 'MESERO', 'COCINERO', 'CAJERO'];
+      return `<div class="card"><table><tr><th>Usuario</th><th>Acceso</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr>
+        ${D.usuarios.map(u => `<tr><td>${escapar(u.nombre)} ${escapar(u.apellido)}</td><td>${escapar(u.nombreAcceso)}</td>
+          <td><select aria-label="Rol de ${escapar(u.nombreAcceso)}" onchange="api('usuarios/rol',{id:${u.id},rol:this.value})" ${u.nombreAcceso === 'admin' ? 'disabled' : ''}>
+            ${roles.map(r => `<option value="${r}" ${u.rol === r ? 'selected' : ''}>${r}</option>`).join('')}
+          </select></td><td>${u.activo ? 'Activo' : 'Inactivo'}</td><td>
+            ${u.nombreAcceso === 'admin' ? '<span>Cuenta protegida</span>' : `<button class="btn g s" onclick="api('usuarios/estado',{id:${u.id},activo:${!u.activo}})">${u.activo ? 'Desactivar' : 'Activar'}</button>
+            <button class="btn g s" onclick="api('usuarios/eliminar',{id:${u.id}})">Eliminar</button>`}
+          </td></tr>`).join('')}
+      </table></div>`;
     }
 
     function panel() {
@@ -240,6 +319,15 @@
       'producto/crear'
     );
 
+    const nuevoUsuario = () => modal('Crear usuario',
+      campo('nombre', 'Nombre') +
+      campo('apellido', 'Apellido') +
+      campo('nombreAcceso', 'Nombre de usuario') +
+      campo('clave', 'Clave (mínimo 4 caracteres)', 'password') +
+      `<label>Rol</label><select name="rol">${['ADMINISTRADOR', 'MESERO', 'COCINERO', 'CAJERO'].map(r => `<option value="${r}">${r}</option>`).join('')}</select>`,
+      'usuarios/crear'
+    );
+
     function nuevoPedido() {
       const libres = D.mesas.filter(m => m.estado === 'LIBRE');
       if (!libres.length) return aviso('No hay mesas libres');
@@ -261,7 +349,7 @@
     }
 
     $('#modal').onclick = e => { if (e.target.id === 'modal') cerrar(); };
-    api('datos');
+    api('session');
   </script>
 </body>
 </html>
