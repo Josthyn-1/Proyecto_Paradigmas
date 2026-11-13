@@ -55,6 +55,7 @@ public class Agenda {
             }
         }
         System.out.println("Programa finalizado.");
+        System.out.println("Gracias por usar la Agenda de Restaurante.");
     }
 
     private void inicializarDemo() {
